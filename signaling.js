@@ -1,11 +1,22 @@
 const express = require("express");
 const WebSocket = require("ws");
+const https = require("https");
+const fs = require("fs");
 
 const app = express();
 const port = 3000;
 
-// Create a WebSocket server
-const wss = new WebSocket.Server({ noServer: true });
+// Read SSL certificate and key
+const serverOptions = {
+  key: fs.readFileSync("./server.key"),
+  cert: fs.readFileSync("./server.crt")
+};
+
+// Create HTTPS server
+const server = https.createServer(serverOptions, app);
+
+// Create WebSocket server that uses HTTPS server
+const wss = new WebSocket.Server({ server });
 
 // Store clients by name
 const clients = new Map();
@@ -17,7 +28,6 @@ wss.on("connection", (ws) => {
   ws.on("message", (message) => {
     const data = JSON.parse(message);
 
-    // Store the sender's name for the WebSocket session
     if (data.type === "register") {
       senderName = data.name;
       clients.set(senderName, ws);
@@ -29,7 +39,7 @@ wss.on("connection", (ws) => {
     if (data.type === "offer" || data.type === "answer" || data.type === "ice-candidate") {
       const recipient = data.to;
       const recipientWs = clients.get(recipient);
-      
+
       if (recipientWs) {
         recipientWs.send(JSON.stringify(data));
       } else {
@@ -38,7 +48,6 @@ wss.on("connection", (ws) => {
     }
   });
 
-  // Handle disconnection
   ws.on("close", () => {
     if (senderName) {
       clients.delete(senderName);
@@ -51,13 +60,7 @@ wss.on("connection", (ws) => {
   });
 });
 
-// Handle HTTP requests and upgrade to WebSocket
-app.server = app.listen(port, () => {
-  console.log(`Signaling server running at http://localhost:${port}`);
-});
-
-app.server.on("upgrade", (request, socket, head) => {
-  wss.handleUpgrade(request, socket, head, (ws) => {
-    wss.emit("connection", ws, request);
-  });
+// Serve the HTTPS server (now accessible via HTTPS)
+server.listen(port, "0.0.0.0", () => {
+  console.log(`Signaling server running on https://0.0.0.0:${port}`);
 });

@@ -10,9 +10,3 @@ pm2 restart signaling.js
 pm2 startup
 pm2 save
 pm2 logs signaling.js
-
-# systemctl - monitoring deployment
-sudo systemctl status nginx
-sudo systemctl restart nginx
-sudo systemctl stop nginx
-sudo systemctl start nginx

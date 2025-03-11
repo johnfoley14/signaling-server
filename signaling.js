@@ -14,24 +14,18 @@ const serverOptions = {
 
 // Create HTTPS server
 const server = https.createServer(serverOptions, app);
+
+// Create WebSocket server that uses HTTPS server
 const wss = new WebSocket.Server({ server });
 
-// Store clients with timestamps
+// Store clients by name
 const clients = new Map();
+
+// Store ICE candidates for debugging
+const iceCandidatesLog = new Map();
 
 // Function to generate a timestamp
 const getTimestamp = () => new Date().toISOString().replace("T", " ").split(".")[0];
-
-// Clean up inactive clients every 10 minutes
-setInterval(() => {
-  const now = Date.now();
-  for (const [name, { timestamp }] of clients) {
-    if (now - timestamp > 10 * 60 * 1000) { // 10 minutes
-      clients.delete(name);
-      console.log(`[${getTimestamp()}] 🗑️ Removed inactive user: ${name}`);
-    }
-  }
-}, 10 * 60 * 1000);
 
 // Handle incoming WebSocket connections
 wss.on("connection", (ws) => {
@@ -45,28 +39,55 @@ wss.on("connection", (ws) => {
 
       if (data.type === "register") {
         senderName = data.name;
-        clients.set(senderName, { ws, timestamp: Date.now() });
+        clients.set(senderName, ws);
         console.log(`[${getTimestamp()}] ✅ ${senderName} registered successfully.`);
         return;
       }
 
       if (!data.to) {
-        console.warn(`[${getTimestamp()}] ⚠️ No recipient specified.`);
+        console.warn(`[${getTimestamp()}] ⚠️ Received message without recipient:`, data);
         return;
       }
 
       const recipient = data.to;
-      const recipientData = clients.get(recipient);
+      const recipientWs = clients.get(recipient);
 
-      if (!recipientData) {
-        console.warn(`[${getTimestamp()}] ❌ Recipient ${recipient} not found.`);
+      if (!recipientWs) {
+        console.warn(`[${getTimestamp()}] ❌ Recipient ${recipient} not found. Unable to forward message.`);
         return;
       }
 
-      // Forward message to recipient
-      recipientData.ws.send(JSON.stringify(data));
+      // Log different message types
+      if (data.type === "offer") {
+        console.log(`[${getTimestamp()}] 📞 ${senderName} is calling ${recipient}. Forwarding offer.`);
+      } else if (data.type === "answer") {
+        console.log(`[${getTimestamp()}] ✅ ${senderName} answered the call from ${recipient}. Forwarding answer.`);
+      } else if (data.type === "ice-candidate") {
+        console.log(`[${getTimestamp()}] ❄️ ICE candidate from ${senderName} → ${recipient}:`, data.candidate);
+
+        // Store ICE candidates for debugging
+        if (!iceCandidatesLog.has(senderName)) {
+          iceCandidatesLog.set(senderName, []);
+        }
+        iceCandidatesLog.get(senderName).push(data.candidate);
+
+        // Check if ICE candidates are actually being exchanged
+        setTimeout(() => {
+          const senderCandidates = iceCandidatesLog.get(senderName) || [];
+          const recipientCandidates = iceCandidatesLog.get(recipient) || [];
+
+          if (senderCandidates.length === 0 || recipientCandidates.length === 0) {
+            console.warn(
+              `[${getTimestamp()}] ⚠️ Possible Peer-to-Peer issue: No ICE candidates exchanged between ${senderName} and ${recipient}. They may need a TURN server.`
+            );
+          }
+        }, 5000);
+      }
+
+      // Forward the message to the intended recipient
+      recipientWs.send(JSON.stringify(data));
     } catch (err) {
-      console.error(`[${getTimestamp()}] 🚨 Error processing message:`, err);
+      console.error(`[${getTimestamp()}] 🚨 Error processing WebSocket message:`, err);
     }
   });
 
@@ -82,13 +103,7 @@ wss.on("connection", (ws) => {
   });
 });
 
-// Endpoint to get active users
-app.get("/get_users", (req, res) => {
-  const activeUsers = Array.from(clients.keys());
-  res.json(activeUsers);
-});
-
-// Serve the HTTPS server
+// Serve the HTTPS server (now accessible via HTTPS)
 server.listen(port, "0.0.0.0", () => {
   console.log(`[${getTimestamp()}] 🚀 Signaling server running on https://0.0.0.0:${port}`);
 });

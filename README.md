@@ -10,3 +10,5 @@ pm2 restart signaling.js
 pm2 startup
 pm2 save
 pm2 logs signaling.js
+tail -f ~/.pm2/logs/signaling-error.log
+

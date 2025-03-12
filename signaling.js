@@ -6,13 +6,11 @@ const fs = require("fs");
 const app = express();
 const port = 3000;
 
-// Read SSL certificate and key
 const serverOptions = {
   key: fs.readFileSync("./server.key"),
   cert: fs.readFileSync("./server.crt"),
 };
 
-// Create HTTPS server
 const server = https.createServer(serverOptions, app);
 
 // Create WebSocket server that uses HTTPS server
@@ -101,6 +99,11 @@ wss.on("connection", (ws) => {
   ws.on("error", (err) => {
     console.error(`[${getTimestamp()}] 🚨 WebSocket error from ${senderName || "unknown client"}:`, err);
   });
+});
+
+// Add endpoint to get all registered user names
+app.get("/get_users", (req, res) => {
+  res.json({ users: Array.from(clients.keys()) });
 });
 
 // Serve the HTTPS server (now accessible via HTTPS)

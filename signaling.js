@@ -33,7 +33,6 @@ wss.on("connection", (ws) => {
   ws.on("message", (message) => {
     try {
       const data = JSON.parse(message);
-      console.log(`[${getTimestamp()}] 📩 Received message:`, data);
 
       if (data.type === "register") {
         senderName = data.name;

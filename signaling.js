@@ -2,9 +2,15 @@ const express = require("express");
 const WebSocket = require("ws");
 const https = require("https");
 const fs = require("fs");
+const cors = require('cors');
 
 const app = express();
 const port = 3000;
+
+// Allow requests from your frontend origin
+app.use(cors({
+  origin: 'https://3.254.201.195', // all requests from this origin are allowed
+}));
 
 const serverOptions = {
   key: fs.readFileSync("./server.key"),

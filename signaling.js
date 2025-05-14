@@ -17,9 +17,8 @@ const serverOptions = {
   cert: fs.readFileSync("./server.crt"),
 };
 
-const server = https.createServer(serverOptions, app);
-
 // Create WebSocket server that uses HTTPS server
+const server = https.createServer(serverOptions, app);
 const wss = new WebSocket.Server({ server });
 
 // Store clients by name
@@ -54,11 +53,12 @@ wss.on("connection", (ws) => {
 
       const recipient = data.to;
       const recipientWs = clients.get(recipient);
-
       if (!recipientWs) {
         console.warn(`[${getTimestamp()}] ❌ Recipient ${recipient} not found. Unable to forward message.`);
         return;
       }
+      // Forward the message to the intended recipient
+      recipientWs.send(JSON.stringify(data));
 
       // Log different message types
       if (data.type === "offer") {
@@ -86,9 +86,6 @@ wss.on("connection", (ws) => {
           }
         }, 5000);
       }
-
-      // Forward the message to the intended recipient
-      recipientWs.send(JSON.stringify(data));
     } catch (err) {
       console.error(`[${getTimestamp()}] 🚨 Error processing WebSocket message:`, err);
     }

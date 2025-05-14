@@ -1,6 +1,8 @@
 # signaling-server
 Signaling server to establish peer to peer connections
 
+To ensure the webapp can access the signaling server, visit https://3.254.201.195:3000/ and continue through to the webpage
+
 # monitor server with pm2
 
 pm2 start signaling.js
